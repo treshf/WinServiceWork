@@ -15,16 +15,17 @@ import (
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
-func exePath() (string, error) {
+func exePath() (string, string, error) {
 	prog := os.Args[0]
 	p, err := filepath.Abs(prog)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+	dir, _ := filepath.Split(p)
 	fi, err := os.Stat(p)
 	if err == nil {
 		if !fi.Mode().IsDir() {
-			return p, nil
+			return p, dir, nil
 		}
 		err = fmt.Errorf("%s is directory", p)
 	}
@@ -33,16 +34,16 @@ func exePath() (string, error) {
 		fi, err := os.Stat(p)
 		if err == nil {
 			if !fi.Mode().IsDir() {
-				return p, nil
+				return p, dir, nil
 			}
 			err = fmt.Errorf("%s is directory", p)
 		}
 	}
-	return "", err
+	return "", "", err
 }
 
 func installService(name, desc string) error {
-	exepath, err := exePath()
+	exepath, _, err := exePath()
 	if err != nil {
 		return err
 	}

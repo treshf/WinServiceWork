@@ -28,18 +28,34 @@ func usage(errmsg string) {
 		"%s\n\n"+
 			"usage: %s <command>\n"+
 			"       where <command> is one of\n"+
-			"       install, remove, debug, start, stop, pause or continue.\n",
+			"       install, remove, start, stop, pause or continue.\n",
 		errmsg, os.Args[0])
 	os.Exit(2)
 }
 
 func main() {
-	const svcName = "myservice"
+	const svcName = "WorkTime"
+	var err error
+	var file *os.File
+	var isIntSess bool
 
-	isIntSess, err := svc.IsAnInteractiveSession()
+	_, pathExe, err := exePath()
+	if err != nil {
+		log.Fatalf("Немогу получить путь к exe. Error: %v", err)
+		return
+	}
+	file, err = os.OpenFile(pathExe+"\\log.txt", os.O_APPEND|os.O_CREATE, 0755) // For read access.
+	if err != nil {
+		log.Fatalf("File logs is not open. Error: %v", err)
+		return
+	}
+	log.SetOutput(file)
+
+	isIntSess, err = svc.IsAnInteractiveSession()
 	if err != nil {
 		log.Fatalf("failed to determine if we are running in an interactive session: %v", err)
 	}
+
 	if !isIntSess {
 		runService(svcName, false)
 		return
@@ -51,12 +67,13 @@ func main() {
 
 	cmd := strings.ToLower(os.Args[1])
 	switch cmd {
-	case "debug":
-		runService(svcName, true)
-		return
 	case "install":
-		err = installService(svcName, "my service")
+		err = installService(svcName, svcName)
+		if err == nil {
+			err = startService(svcName)
+		}
 	case "remove":
+		controlService(svcName, svc.Stop, svc.Stopped)
 		err = removeService(svcName)
 	case "start":
 		err = startService(svcName)
@@ -72,5 +89,4 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to %s %s: %v", cmd, svcName, err)
 	}
-	return
 }

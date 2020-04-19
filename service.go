@@ -9,7 +9,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"golang.org/x/sys/windows/svc"
@@ -18,23 +17,25 @@ import (
 
 var flag = true
 
-type myservice struct{}
+type service struct{}
 
-func (m *myservice) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
 	changes <- svc.Status{State: svc.StartPending}
-	fasttick := time.Tick(500 * time.Millisecond)
-	slowtick := time.Tick(2 * time.Second)
-	tick := fasttick
+	//fasttick := time.Tick(500 * time.Millisecond)
+	//slowtick := time.Tick(2 * time.Second)
+	//tick := fasttick
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
 	for {
 		select {
-		case <-tick:
-			if flag {
-				log.Output(1, "Start")
-				flag = false
-			}
+		/*
+			case <-tick:
+				if flag {
+					log.Output(1, "Start")
+					flag = false
+				}
+		*/
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Interrogate:
@@ -47,10 +48,10 @@ loop:
 				break loop
 			case svc.Pause:
 				changes <- svc.Status{State: svc.Paused, Accepts: cmdsAccepted}
-				tick = slowtick
+				//tick = slowtick
 			case svc.Continue:
 				changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
-				tick = fasttick
+				//tick = fasttick
 				log.Output(1, fmt.Sprintf("unexpected control request #%d", c))
 			}
 		}
@@ -62,22 +63,19 @@ loop:
 func runService(name string, isDebug bool) {
 	var err error
 
-	file, err := os.OpenFile("D:\\file.txt", os.O_APPEND|os.O_CREATE, 0755) // For read access.
-	if err != nil {
-		log.Fatalln("File logs is not open")
-		return
-	}
-	log.SetOutput(file)
-
 	log.Output(1, fmt.Sprintf("starting %s service", name))
 	run := svc.Run
 	if isDebug {
 		run = debug.Run
 	}
-	err = run(name, &myservice{})
+	err = Start()
 	if err != nil {
-		log.Fatalf("%s service failed: %v", name, err)
-		return
+		log.Output(1, fmt.Sprintf("ошибка xslx: %v", err))
+	}
+
+	err = run(name, &service{})
+	if err != nil {
+		log.Output(1, fmt.Sprintf("%s service stopped", name))
 	}
 	log.Output(1, fmt.Sprintf("%s service stopped", name))
 }
