@@ -1,1 +1,1 @@
-go build . && ./service_win_go.exe install && ./service_win_go.exe start && sleep 3 && ./service_win_go.exe stop && ./service_win_go.exe remove
+go build && rm -f log.txt && ./service_win_go.exe install && sleep 3 && ./service_win_go.exe remove

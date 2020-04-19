@@ -44,7 +44,11 @@ loop:
 				time.Sleep(100 * time.Millisecond)
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
-				log.Output(1, "Stop")
+				//log.Output(1, "Stop service")
+				err := EndWork()
+				if err != nil {
+					log.Output(1, fmt.Sprintf("Ошибка записи данных об окончании дня %v", err))
+				}
 				break loop
 			case svc.Pause:
 				changes <- svc.Status{State: svc.Paused, Accepts: cmdsAccepted}
@@ -63,19 +67,19 @@ loop:
 func runService(name string, isDebug bool) {
 	var err error
 
-	log.Output(1, fmt.Sprintf("starting %s service", name))
+	//log.Output(1, fmt.Sprintf("starting %s service", name))
 	run := svc.Run
 	if isDebug {
 		run = debug.Run
 	}
-	err = Start()
+	err = StartWork()
 	if err != nil {
 		log.Output(1, fmt.Sprintf("ошибка xslx: %v", err))
 	}
 
 	err = run(name, &service{})
 	if err != nil {
-		log.Output(1, fmt.Sprintf("%s service stopped", name))
+		log.Output(1, fmt.Sprintf("%s service stopped. Error:%v", name, err))
 	}
-	log.Output(1, fmt.Sprintf("%s service stopped", name))
+	//log.Output(1, fmt.Sprintf("%s service stopped", name))
 }

@@ -1,0 +1,2 @@
+service_win_go.exe install
+pause
