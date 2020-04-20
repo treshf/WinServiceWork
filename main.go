@@ -68,7 +68,7 @@ func main() {
 	cmd := strings.ToLower(os.Args[1])
 	switch cmd {
 	case "install":
-		err = installService(svcName, svcName)
+		err = installService(svcName, svcName+"1.0")
 		if err == nil {
 			err = startService(svcName)
 		}

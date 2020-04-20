@@ -34,7 +34,7 @@ func SetText(cell string, text string, xlsx *excelize.File) error {
 	if err != nil {
 		return err
 	}
-	return xlsx.SetCellStr(sheet, cell, text)
+	return xlsx.SetCellValue(sheet, cell, text)
 }
 
 //InitFIle создаёт и наполняет новый файл
@@ -99,30 +99,18 @@ func FileName() (string, error) {
 
 //AddDataStart добавление информации о новом дне
 func AddDataStart(row string, timeIn time.Time, xlsx *excelize.File) error {
-	var err error
-	err = SetText("A"+row, time.Now().Format(frmDate), xlsx)
-	if err != nil {
+	if err := SetText("A"+row, time.Now().Format(frmDate), xlsx); err != nil {
 		return fmt.Errorf("Ошибка записи в ячейку xlsx:%v", err)
 	}
-	err = SetCellTime("B"+row, timeIn, xlsx)
-	if err != nil {
-		return err
-	}
-	return nil
+	return SetCellTime("B"+row, timeIn, xlsx)
 }
 
 //AddDataEnd добавление информации об окончании рабочего дня
 func AddDataEnd(row string, timeIn time.Time, xlsx *excelize.File) error {
-	var err error
-	err = SetCellTime("C"+row, timeIn, xlsx)
-	if err != nil {
+	if err := SetCellTime("C"+row, timeIn, xlsx); err != nil {
 		return err
 	}
-	err = xlsx.SetCellFormula(sheet, "D"+row, "=B"+row+"-C"+row+"-\"1:00\"")
-	if err != nil {
-		return err
-	}
-	return nil
+	return xlsx.SetCellFormula(sheet, "D"+row, "=B"+row+"-C"+row+"-\"1:00\"")
 }
 
 //SetCellTime записывает в ячейку время и выравнивает ширину столбца по содержимому
@@ -241,31 +229,34 @@ func GetTimeStandart() (int, error) {
 func StartWork() error {
 	rows, xlsx, name, err := OpenXLSX()
 	if err != nil {
-		return fmt.Errorf("Start: %v", err)
+		return fmt.Errorf("StartWork.: %v", err)
 	}
 
 	if len(rows[len(rows)-1][0]) > 0 {
 		dateXLSX, err := time.Parse(frmDate, rows[len(rows)-1][0])
 		if err != nil {
-			return fmt.Errorf("Ошибка чтения даты:%s %v", rows[len(rows)-1][0], err)
+			dateXLSX, err = time.Parse("01-02-06", rows[len(rows)-1][0])
+			if err != nil {
+				return fmt.Errorf("StartWork.Ошибка чтения даты:%s %v", rows[len(rows)-1][0], err)
+			}
 		}
 		if dateXLSX.Day() != time.Now().Day() {
 			err = AddDataStart(fmt.Sprint(len(rows)+1), time.Now(), xlsx)
 			if err != nil {
-				return fmt.Errorf("Ошибка записи данных:%s %v", name, err)
+				return fmt.Errorf("StartWork.Ошибка записи данных:%s %v", name, err)
 			}
 
 			if err = xlsx.SaveAs(name); err != nil {
-				return fmt.Errorf("Ошибка сохранения xlsx:%s %v", name, err)
+				return fmt.Errorf("StartWork.Ошибка сохранения xlsx:%s %v", name, err)
 			}
 		}
 	} else {
 		err = AddDataStart(fmt.Sprint(len(rows)), time.Now(), xlsx)
 		if err != nil {
-			return fmt.Errorf("Ошибка записи данных:%s %v", name, err)
+			return fmt.Errorf("StartWork.Ошибка записи данных:%s %v", name, err)
 		}
 		if err = xlsx.SaveAs(name); err != nil {
-			return fmt.Errorf("Ошибка сохранения xlsx:%s %v", name, err)
+			return fmt.Errorf("StartWork.Ошибка сохранения xlsx:%s %v", name, err)
 		}
 	}
 
@@ -276,46 +267,47 @@ func StartWork() error {
 func EndWork() error {
 	rows, xlsx, name, err := OpenXLSX()
 	if err != nil {
-		return fmt.Errorf("Start: %v", err)
+		return fmt.Errorf("EndWork: %v", err)
+	}
+
+	if len(rows[len(rows)-1][0]) == 0 {
+		return fmt.Errorf("EndWork. Ошибка, нет даты")
 	}
 
 	rowStr := fmt.Sprint(len(rows))
-	if len(rows[len(rows)-1][0]) > 0 {
-		dateXLSX, err := time.Parse(frmDate, rows[len(rows)-1][0])
+	dateXLSX, err := time.Parse(frmDate, rows[len(rows)-1][0])
+	if err != nil {
+		dateXLSX, err = time.Parse("01-02-06", rows[len(rows)-1][0])
 		if err != nil {
-			return fmt.Errorf("Ошибка чтения даты:%s %v", rows[len(rows)-1][0], err)
+			return fmt.Errorf("EndWork.Ошибка чтения даты:%s %v", rows[len(rows)-1][0], err)
 		}
-		if dateXLSX.Day() == time.Now().Day() {
-			err = AddDataEnd(rowStr, time.Now(), xlsx)
-			if err != nil {
-				return fmt.Errorf("Ошибка записи данных:%s %v", name, err)
-			}
-		} else {
-			log.Output(1, "Не правильное время окончания. Возможно PC не был выключен")
-			bufTime, _ := time.Parse(frmTime, "22:00:0")
-			err = AddDataEnd(rowStr, bufTime, xlsx)
-			if err != nil {
-				return fmt.Errorf("Ошибка записи данных:%s %v", name, err)
-			}
+	}
 
-			rowStr = fmt.Sprint(len(rows) + 1)
-			bufTime, _ = time.Parse(frmTime, "10:00:0")
-			err = AddDataStart(rowStr, bufTime, xlsx)
-			if err != nil {
-				return fmt.Errorf("Ошибка записи данных:%s %v", name, err)
-			}
-
-			err = AddDataEnd(rowStr, time.Now(), xlsx)
-			if err != nil {
-				return fmt.Errorf("Ошибка записи данных:%s %v", name, err)
-			}
-		}
-	} else {
-		log.Output(1, "Запись о завершении без начала")
-		err = AddDataEnd(rowStr, time.Now(), xlsx)
+	if dateXLSX.Day() != time.Now().Day() {
+		log.Output(1, "Неправильное время окончания. Возможно PC не был выключен во время")
+		bufTime, err := time.Parse(frmDate+" "+frmTime, rows[len(rows)-1][0]+" "+"22:00:0")
 		if err != nil {
-			return fmt.Errorf("Ошибка записи данных:%s %v", name, err)
+			return fmt.Errorf("EndWork.Ошибка парсера:%s %v", rows[len(rows)][0]+" "+"22:00:0", err)
 		}
+		err = AddDataEnd(rowStr, bufTime, xlsx)
+		if err != nil {
+			return fmt.Errorf("EndWork.Ошибка записи данных:%s %v", name, err)
+		}
+
+		rowStr = fmt.Sprint(len(rows) + 1)
+		bufTime, err = time.Parse(frmDate+" "+frmTime, time.Now().Format(frmDate)+" "+"10:00:0")
+		if err != nil {
+			return fmt.Errorf("EndWork.Ошибка парсера:%s %v", time.Now().Format(frmDate)+" "+"10:00:0", err)
+		}
+		err = AddDataStart(rowStr, bufTime, xlsx)
+		if err != nil {
+			return fmt.Errorf("EndWork.Ошибка записи данных:%s %v", name, err)
+		}
+	}
+
+	err = AddDataEnd(rowStr, time.Now(), xlsx)
+	if err != nil {
+		return fmt.Errorf("EndWork.Ошибка записи данных:%s %v", name, err)
 	}
 
 	timeStandart, err := GetTimeStandart()

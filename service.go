@@ -23,19 +23,23 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
 	changes <- svc.Status{State: svc.StartPending}
 	//fasttick := time.Tick(500 * time.Millisecond)
-	//slowtick := time.Tick(2 * time.Second)
-	//tick := fasttick
+	slowtick := time.Tick(2 * time.Second)
+	tick := slowtick
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
 	for {
 		select {
-		/*
-			case <-tick:
+		case <-tick:
+			if time.Now().Hour() == 21 {
 				if flag {
-					log.Output(1, "Start")
+					if err := EndWork(); err != nil {
+						log.Output(1, fmt.Sprintf("Ошибка записи данных об окончании дня %v", err))
+					}
 					flag = false
 				}
-		*/
+			} else {
+				flag = true
+			}
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Interrogate:
@@ -45,8 +49,7 @@ loop:
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
 				//log.Output(1, "Stop service")
-				err := EndWork()
-				if err != nil {
+				if err := EndWork(); err != nil {
 					log.Output(1, fmt.Sprintf("Ошибка записи данных об окончании дня %v", err))
 				}
 				break loop
@@ -72,11 +75,12 @@ func runService(name string, isDebug bool) {
 	if isDebug {
 		run = debug.Run
 	}
-	err = StartWork()
-	if err != nil {
-		log.Output(1, fmt.Sprintf("ошибка xslx: %v", err))
-	}
-
+	/*
+		err = StartWork()
+		if err != nil {
+			log.Output(1, fmt.Sprintf("ошибка xslx: %v", err))
+		}
+	*/
 	err = run(name, &service{})
 	if err != nil {
 		log.Output(1, fmt.Sprintf("%s service stopped. Error:%v", name, err))
